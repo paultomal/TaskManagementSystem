@@ -35,6 +35,7 @@ build/
 ### Claude Code ###
 .claude/
 CLAUDE.md
+CORS-FRONTEND.md
 
 ### Docs (not for repo) ###
 SRS*.md
