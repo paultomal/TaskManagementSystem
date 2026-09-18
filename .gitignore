@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Claude Code ###
+.claude/
+CLAUDE.md
+
+### Docs (not for repo) ###
+SRS.md
