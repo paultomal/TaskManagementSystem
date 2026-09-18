@@ -11,6 +11,8 @@ import com.example.taskmanagement.repository.TaskRepository;
 import com.example.taskmanagement.repository.UserRepository;
 import com.example.taskmanagement.security.CustomUserDetails;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -24,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class TaskService {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskService.class);
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
@@ -64,7 +68,10 @@ public class TaskService {
                 .assignee(resolveAssignee(request.assigneeId()))
                 .owner(currentUser())
                 .build();
-        return TaskResponse.from(taskRepository.save(task));
+        Task saved = taskRepository.saveAndFlush(task);
+        log.info("Task created: [{}] '{}' by '{}'", saved.getId(), saved.getTitle(),
+                saved.getOwner() != null ? saved.getOwner().getUsername() : "?");
+        return TaskResponse.from(saved);
     }
 
     @Caching(evict = {
@@ -94,7 +101,9 @@ public class TaskService {
             task.setAssignee(resolveAssignee(request.assigneeId()));
         }
 
-        return TaskResponse.from(taskRepository.save(task));
+        Task saved = taskRepository.saveAndFlush(task);
+        log.info("Task updated: [{}] '{}' status={}", saved.getId(), saved.getTitle(), saved.getStatus());
+        return TaskResponse.from(saved);
     }
 
     @Caching(evict = {
@@ -105,6 +114,7 @@ public class TaskService {
         Task task = getTaskOrThrow(id);
         checkOwnership(task);
         taskRepository.delete(task);
+        log.info("Task deleted: [{}] '{}'", id, task.getTitle());
     }
 
     private Task getTaskOrThrow(String id) {

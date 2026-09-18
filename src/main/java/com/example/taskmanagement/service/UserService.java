@@ -10,7 +10,8 @@ import com.example.taskmanagement.model.User;
 import com.example.taskmanagement.repository.UserRepository;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -45,18 +48,17 @@ public class UserService {
             throw new DuplicateResourceException("Email already registered: " + request.email());
         }
 
-        Set<Role> roles = (request.roles() == null || request.roles().isEmpty())
-                ? EnumSet.of(Role.USER)
-                : EnumSet.copyOf(request.roles());
-
+        // Self-registration always yields a USER; roles are never taken from the client.
         User user = User.builder()
                 .username(request.username())
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
-                .roles(roles)
+                .roles(EnumSet.of(Role.USER))
                 .build();
 
-        return UserResponse.from(userRepository.save(user));
+        User saved = userRepository.saveAndFlush(user);
+        log.info("User created: '{}' [{}] roles={}", saved.getUsername(), saved.getId(), saved.getRoles());
+        return UserResponse.from(saved);
     }
 
     public UserResponse update(String id, UserUpdateRequest request) {
@@ -75,12 +77,15 @@ public class UserService {
             user.setRoles(EnumSet.copyOf(request.roles()));
         }
 
-        return UserResponse.from(userRepository.save(user));
+        User saved = userRepository.saveAndFlush(user);
+        log.info("User updated: '{}' [{}]", saved.getUsername(), saved.getId());
+        return UserResponse.from(saved);
     }
 
     public void delete(String id) {
         User user = getUserOrThrow(id);
         userRepository.delete(user);
+        log.info("User deleted: '{}' [{}]", user.getUsername(), id);
     }
 
     private User getUserOrThrow(String id) {

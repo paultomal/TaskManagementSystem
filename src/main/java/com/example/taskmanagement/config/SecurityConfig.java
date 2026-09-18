@@ -1,6 +1,7 @@
 package com.example.taskmanagement.config;
 
 import com.example.taskmanagement.security.JwtAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -57,5 +58,18 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    /**
+     * The JWT filter is a {@code @Component}, so Spring Boot would otherwise
+     * auto-register it in the servlet container's filter chain in addition to the
+     * security chain (where we add it explicitly). Disable that auto-registration
+     * so it only runs once, in its intended position.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 }

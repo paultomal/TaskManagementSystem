@@ -1,5 +1,6 @@
 package com.example.taskmanagement.controller;
 
+import com.example.taskmanagement.dto.ChangePasswordRequest;
 import com.example.taskmanagement.dto.LoginRequest;
 import com.example.taskmanagement.dto.RefreshRequest;
 import com.example.taskmanagement.dto.TokenResponse;
@@ -36,6 +37,16 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest request) {
         authService.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Self-service password change using username + current password. No login or
+     * OTP required. All existing sessions are revoked on success.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
         return ResponseEntity.noContent().build();
     }
 
