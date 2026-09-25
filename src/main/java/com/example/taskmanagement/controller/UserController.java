@@ -6,6 +6,7 @@ import com.example.taskmanagement.dto.UserUpdateRequest;
 import com.example.taskmanagement.service.UserService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.security.Principal;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +31,16 @@ public class UserController {
     @GetMapping
     public List<UserResponse> getAll() {
         return userService.findAll();
+    }
+
+    /**
+     * Returns the currently authenticated user's own profile. Unlike the other
+     * endpoints here, this is open to any authenticated user (not just admins),
+     * since it only ever exposes the caller's own record.
+     */
+    @GetMapping("/me")
+    public UserResponse getCurrentUser(Principal principal) {
+        return userService.findByUsername(principal.getName());
     }
 
     @GetMapping("/{id}")

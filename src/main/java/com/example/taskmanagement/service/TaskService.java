@@ -4,13 +4,17 @@ import com.example.taskmanagement.dto.TaskCreateRequest;
 import com.example.taskmanagement.dto.TaskResponse;
 import com.example.taskmanagement.dto.TaskUpdateRequest;
 import com.example.taskmanagement.exception.ResourceNotFoundException;
+import com.example.taskmanagement.model.Label;
 import com.example.taskmanagement.model.Task;
 import com.example.taskmanagement.model.TaskStatus;
 import com.example.taskmanagement.model.User;
+import com.example.taskmanagement.repository.LabelRepository;
 import com.example.taskmanagement.repository.TaskRepository;
 import com.example.taskmanagement.repository.UserRepository;
 import com.example.taskmanagement.security.CustomUserDetails;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -31,10 +35,13 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final LabelRepository labelRepository;
 
-    public TaskService(TaskRepository taskRepository, UserRepository userRepository) {
+    public TaskService(TaskRepository taskRepository, UserRepository userRepository,
+                       LabelRepository labelRepository) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
+        this.labelRepository = labelRepository;
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +51,7 @@ public class TaskService {
         if (status != null) {
             tasks = taskRepository.findByStatus(status);
         } else if (assigneeId != null) {
-            tasks = taskRepository.findByAssigneeId(assigneeId);
+            tasks = taskRepository.findByAssignees_Id(assigneeId);
         } else {
             tasks = taskRepository.findAll();
         }
@@ -65,8 +72,9 @@ public class TaskService {
                 .status(request.status() != null ? request.status() : TaskStatus.TODO)
                 .priority(request.priority() != null ? request.priority() : 3)
                 .dueDate(request.dueDate())
-                .assignee(resolveAssignee(request.assigneeId()))
+                .assignees(resolveAssignees(request.assigneeIds()))
                 .owner(currentUser())
+                .labels(resolveLabels(request.labelIds()))
                 .build();
         Task saved = taskRepository.saveAndFlush(task);
         log.info("Task created: [{}] '{}' by '{}'", saved.getId(), saved.getTitle(),
@@ -97,8 +105,11 @@ public class TaskService {
         if (request.dueDate() != null) {
             task.setDueDate(request.dueDate());
         }
-        if (request.assigneeId() != null) {
-            task.setAssignee(resolveAssignee(request.assigneeId()));
+        if (request.assigneeIds() != null) {
+            task.setAssignees(resolveAssignees(request.assigneeIds()));
+        }
+        if (request.labelIds() != null) {
+            task.setLabels(resolveLabels(request.labelIds()));
         }
 
         Task saved = taskRepository.saveAndFlush(task);
@@ -122,12 +133,28 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
     }
 
-    private User resolveAssignee(String assigneeId) {
-        if (assigneeId == null) {
-            return null;
+    private Set<User> resolveAssignees(Set<String> assigneeIds) {
+        if (assigneeIds == null || assigneeIds.isEmpty()) {
+            return new LinkedHashSet<>();
         }
-        return userRepository.findById(assigneeId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + assigneeId));
+        Set<User> assignees = new LinkedHashSet<>();
+        for (String assigneeId : assigneeIds) {
+            assignees.add(userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + assigneeId)));
+        }
+        return assignees;
+    }
+
+    private Set<Label> resolveLabels(Set<String> labelIds) {
+        if (labelIds == null || labelIds.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
+        Set<Label> labels = new LinkedHashSet<>();
+        for (String labelId : labelIds) {
+            labels.add(labelRepository.findById(labelId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Label not found with id: " + labelId)));
+        }
+        return labels;
     }
 
     /**

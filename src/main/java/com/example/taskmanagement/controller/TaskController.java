@@ -2,8 +2,10 @@ package com.example.taskmanagement.controller;
 
 import com.example.taskmanagement.dto.TaskCreateRequest;
 import com.example.taskmanagement.dto.TaskResponse;
+import com.example.taskmanagement.dto.TaskRevisionResponse;
 import com.example.taskmanagement.dto.TaskUpdateRequest;
 import com.example.taskmanagement.model.TaskStatus;
+import com.example.taskmanagement.service.TaskHistoryService;
 import com.example.taskmanagement.service.TaskService;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -24,9 +26,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaskController {
 
     private final TaskService taskService;
+    private final TaskHistoryService taskHistoryService;
 
-    public TaskController(TaskService taskService) {
+    public TaskController(TaskService taskService, TaskHistoryService taskHistoryService) {
         this.taskService = taskService;
+        this.taskHistoryService = taskHistoryService;
     }
 
     @GetMapping
@@ -39,6 +43,12 @@ public class TaskController {
     @GetMapping("/{id}")
     public TaskResponse getById(@PathVariable String id) {
         return taskService.findById(id);
+    }
+
+    /** Audit trail for a task: every revision, who changed it, and when. */
+    @GetMapping("/{id}/history")
+    public List<TaskRevisionResponse> getHistory(@PathVariable String id) {
+        return taskHistoryService.findHistory(id);
     }
 
     @PostMapping

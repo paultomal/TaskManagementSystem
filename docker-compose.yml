@@ -1,0 +1,63 @@
+# Task Management System — full local stack.
+# Start with:  docker compose up --build
+# Stop with:   docker compose down        (add -v to also wipe DB/Redis data)
+#
+# The Spring app reaches the other containers by their service names
+# (postgres / redis) over the private compose network. Config is passed in via
+# environment variables, which Spring Boot relaxed-binds onto the matching
+# application.properties keys (SPRING_DATASOURCE_URL -> spring.datasource.url).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tms-postgres
+    environment:
+      POSTGRES_DB: taskmanager
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "121212"
+    ports:
+      - "5432:5432"          # exposed for host tools (psql/DBeaver); remove if not needed
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taskmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tms-redis
+    ports:
+      - "6379:6379"          # exposed for host tools (redis-cli); remove if not needed
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: tms-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taskmanager
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "121212"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      # Override these for anything beyond local dev:
+      # APP_JWT_SECRET: <base64 256-bit key>
+      # APP_ADMIN_PASSWORD: <strong password>
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
+  redisdata:

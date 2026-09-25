@@ -1,54 +1,66 @@
 package com.example.taskmanagement.service;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
+import java.util.Set;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 
 /**
- * In-memory whitelist of valid refresh-token JTIs so that logout and
+ * Redis-backed whitelist of valid refresh-token JTIs so that logout and
  * admin-triggered force-logout can revoke tokens even though the JWTs
  * themselves are stateless.
  *
- * <p>Keyed by {@code {username}:{jti}} with an absolute expiry timestamp;
- * expired entries are treated as invalid and cleaned up lazily. This keeps the
- * app runnable without an external Redis server. Note that the whitelist is not
- * shared across instances and is lost on restart — swap the implementation back
- * to a Redis-backed store for a clustered/persistent deployment.
+ * <p>Each valid token is stored as a key {@code refresh:{username}:{jti}} with a
+ * per-key TTL matching the refresh-token lifetime, so expired entries are
+ * evicted by Redis automatically. Using Redis (instead of an in-memory map)
+ * means the whitelist survives app restarts and is shared across every instance
+ * of the app — required for a clustered/persistent deployment.
  */
 @Service
 public class RefreshTokenService {
 
-    private final Map<String, Long> tokens = new ConcurrentHashMap<>();
+    private static final String KEY_PREFIX = "refresh:";
+    private static final String VALUE = "1";
+
+    private final StringRedisTemplate redis;
+
+    public RefreshTokenService(StringRedisTemplate redis) {
+        this.redis = redis;
+    }
 
     public void store(String username, String jti, long ttlMs) {
-        tokens.put(key(username, jti), System.currentTimeMillis() + ttlMs);
+        redis.opsForValue().set(key(username, jti), VALUE, Duration.ofMillis(ttlMs));
     }
 
     public boolean isValid(String username, String jti) {
-        Long expiry = tokens.get(key(username, jti));
-        if (expiry == null) {
-            return false;
-        }
-        if (expiry < System.currentTimeMillis()) {
-            tokens.remove(key(username, jti));
-            return false;
-        }
-        return true;
+        return Boolean.TRUE.equals(redis.hasKey(key(username, jti)));
     }
 
     public void revoke(String username, String jti) {
-        tokens.remove(key(username, jti));
+        redis.delete(key(username, jti));
     }
 
     /**
-     * Force-logout: revoke every refresh token for the user.
+     * Force-logout: revoke every refresh token for the user by scanning for all
+     * keys under the user's prefix and deleting them.
      */
     public void revokeAll(String username) {
-        String prefix = username + ":";
-        tokens.keySet().removeIf(k -> k.startsWith(prefix));
+        String pattern = KEY_PREFIX + username + ":*";
+        ScanOptions options = ScanOptions.scanOptions().match(pattern).count(100).build();
+        try (Cursor<String> cursor = redis.scan(options)) {
+            Set<String> batch = new java.util.HashSet<>();
+            while (cursor.hasNext()) {
+                batch.add(cursor.next());
+            }
+            if (!batch.isEmpty()) {
+                redis.delete(batch);
+            }
+        }
     }
 
     private String key(String username, String jti) {
-        return username + ":" + jti;
+        return KEY_PREFIX + username + ":" + jti;
     }
 }

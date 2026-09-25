@@ -40,6 +40,12 @@ public class UserService {
         return UserResponse.from(getUserOrThrow(id));
     }
 
+    @Transactional(readOnly = true)
+    public UserResponse findByUsername(String username) {
+        return UserResponse.from(userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username)));
+    }
+
     public UserResponse create(UserCreateRequest request) {
         if (userRepository.existsByUsername(request.username())) {
             throw new DuplicateResourceException("Username already taken: " + request.username());

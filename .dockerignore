@@ -1,0 +1,13 @@
+target/
+.git/
+.idea/
+.mvn/wrapper/*.jar
+*.iml
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+HELP.md
+CORS-FRONTEND.md
+SRS*.md
+.claude/

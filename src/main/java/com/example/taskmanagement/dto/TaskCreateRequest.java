@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.Set;
 
 public record TaskCreateRequest(
         @NotBlank @Size(max = 150) String title,
@@ -13,5 +14,6 @@ public record TaskCreateRequest(
         TaskStatus status,
         @Min(1) @Max(5) Integer priority,
         LocalDate dueDate,
-        String assigneeId) {
+        Set<String> assigneeIds,
+        Set<String> labelIds) {
 }

@@ -9,5 +9,5 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     List<Task> findByStatus(TaskStatus status);
 
-    List<Task> findByAssigneeId(String assigneeId);
+    List<Task> findByAssignees_Id(String assigneeId);
 }
